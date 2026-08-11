@@ -1,34 +1,40 @@
 import { formatarReal } from '@/lib/format';
-import { totalItem } from '@/lib/conta';
-import type { SessionItem } from '@/lib/supabase/types';
+import type { ItemAgrupado } from '@/lib/conta';
 
-export function ItemRow({ item }: { item: SessionItem }) {
+/**
+ * Hierarquia da linha: o nome do produto é o que o cliente procura ao conferir
+ * a conta, então ele carrega o peso. A quantidade fica discreta à esquerda e o
+ * preço alinhado à direita, pra a coluna de valores ser lida de cima a baixo.
+ */
+export function ItemRow({ item }: { item: ItemAgrupado }) {
   const pago = item.status === 'paid';
   const reservado = item.status === 'reserved';
 
   return (
-    <div className="flex w-full items-center justify-between">
-      <div className="flex min-w-0 items-center gap-3">
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#f3f3f3]">
-          <span className="text-sm font-semibold text-[#595959]">{item.quantity}</span>
-        </div>
+    <div className="flex w-full items-baseline justify-between gap-4 py-3.5">
+      <div className="flex min-w-0 items-baseline gap-2.5">
+        <span className="shrink-0 text-sm tabular-nums text-black/40">{item.quantity}x</span>
         <span
-          className={`truncate text-base font-medium ${pago ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}
+          className={`min-w-0 text-[15px] leading-snug ${
+            pago ? 'text-black/35 line-through' : 'text-[#111827]'
+          }`}
         >
           {item.name}
-        </span>
-        {reservado && (
-          <span className="shrink-0 rounded-full bg-[#851619]/8 px-2 py-0.5 text-xs font-medium text-[#851619]">
-            reservado
-          </span>
-        )}
-      </div>
-      <div className="flex shrink-0 items-center gap-5 text-base">
-        {item.quantity > 1 && <span className="text-black/45">{formatarReal(item.unit_price)}</span>}
-        <span className={`font-semibold ${pago ? 'text-[#9ca3af] line-through' : 'text-[#111827]'}`}>
-          {formatarReal(totalItem(item))}
+          {reservado && (
+            <span className="ml-2 whitespace-nowrap rounded-full bg-[#851619]/8 px-2 py-0.5 text-xs text-[#851619]">
+              reservado
+            </span>
+          )}
         </span>
       </div>
+
+      <span
+        className={`shrink-0 text-[15px] tabular-nums ${
+          pago ? 'text-black/35 line-through' : 'text-[#111827]'
+        }`}
+      >
+        {formatarReal(item.total)}
+      </span>
     </div>
   );
 }

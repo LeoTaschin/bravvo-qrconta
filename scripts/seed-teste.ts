@@ -4,7 +4,7 @@ async function main() {
   const { data: restaurante, error: restauranteError } = await supabase
     .from('restaurants')
     .insert({
-      name: 'Bravvo Pizzaria Italiana',
+      name: 'Bravvo Pizzaria',
       city: 'Sao Paulo',
       pix_key: 'teste-piloto@bravvo.dev',
     })

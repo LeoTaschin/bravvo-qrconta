@@ -12,7 +12,7 @@ interface TelaPagamentoProps {
 
 export function TelaPagamento({ total, gerando, erro, onBack, onConfirmar }: TelaPagamentoProps) {
   return (
-    <div className="animate-sheet-slide-up fixed inset-0 z-30 mx-auto flex max-w-[430px] flex-col bg-[#f3f3f3]">
+    <div className="animate-sheet-slide-up absolute inset-0 z-30 flex flex-col bg-[#f3f3f3]">
       <div className="rounded-b-2xl bg-white pb-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
         <div className="relative flex flex-col items-center px-6 pb-5 pt-8">
           <button

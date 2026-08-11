@@ -9,7 +9,7 @@ interface TelaCheiaProps {
 
 export function TelaCheia({ title, onBack, children, footer }: TelaCheiaProps) {
   return (
-    <div className="animate-sheet-slide-up fixed inset-0 z-30 mx-auto flex max-w-[430px] flex-col bg-[#f3f3f3]">
+    <div className="animate-sheet-slide-up absolute inset-0 z-30 flex flex-col bg-[#f3f3f3]">
       <div className="relative z-10 flex flex-col items-center bg-white px-6 pb-5 pt-8 shadow-[0_12px_20px_-12px_rgba(0,0,0,0.1)]">
         <button
           type="button"

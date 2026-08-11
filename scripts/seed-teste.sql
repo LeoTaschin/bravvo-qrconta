@@ -5,7 +5,7 @@
 
 with restaurante as (
   insert into restaurants (name, city, pix_key)
-  values ('Bravvo Pizzaria Italiana', 'Sao Paulo', 'teste-piloto@bravvo.dev')
+  values ('Bravvo Pizzaria', 'Sao Paulo', 'teste-piloto@bravvo.dev')
   returning id
 ),
 mesa as (

@@ -5,7 +5,7 @@
 --
 -- ⚠️ Rode uma ÚNICA vez: não há UNIQUE em products.name, então rodar de novo
 -- duplica todos os itens. Se precisar reprocessar, apague antes:
---   delete from products where restaurant_id = (select id from restaurants where name = 'Bravvo Pizzaria Italiana');
+--   delete from products where restaurant_id = (select id from restaurants where name ilike 'Bravvo%');
 --
 -- Convenções adotadas por não haver variantes (products é uma linha "achatada"
 -- por combinação de sabor/tamanho/opção):
@@ -19,7 +19,7 @@
 --     de variante dentro do mesmo item).
 
 with restaurante as (
-  select id from restaurants where name = 'Bravvo Pizzaria Italiana' limit 1
+  select id from restaurants where name ilike 'Bravvo%' limit 1
 )
 insert into products (restaurant_id, name, price, category)
 select restaurante.id, v.name, v.price, v.category

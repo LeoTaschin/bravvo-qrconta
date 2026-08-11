@@ -24,6 +24,7 @@ import type {
   TableSession,
 } from '@/lib/supabase/types';
 
+import { MolduraTelefone } from '@/components/conta-mesa/MolduraTelefone';
 import { TelaCarregando } from '@/components/conta-mesa/TelaCarregando';
 import { ContaMesaPrincipal } from '@/components/conta-mesa/ContaMesaPrincipal';
 import { ModalPagarConta } from '@/components/conta-mesa/ModalPagarConta';
@@ -237,19 +238,28 @@ export default function MesaPage() {
     setErroCobranca(null);
   }
 
-  if (carregando) return <TelaCarregando />;
+  if (carregando) {
+    return (
+      <MolduraTelefone>
+        <TelaCarregando />
+      </MolduraTelefone>
+    );
+  }
 
   if (erro || !table || !session) {
     return (
-      <div className="mx-auto flex min-h-screen max-w-[430px] flex-col items-center justify-center gap-3 bg-[#f3f3f3] px-8 text-center">
-        <p className="text-base text-black">{erro ?? 'Algo deu errado.'}</p>
-      </div>
+      <MolduraTelefone>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#f3f3f3] px-8 text-center">
+          <p className="text-base text-black">{erro ?? 'Algo deu errado.'}</p>
+        </div>
+      </MolduraTelefone>
     );
   }
 
   return (
-    <>
+    <MolduraTelefone>
       <ContaMesaPrincipal
+        nomeRestaurante={restaurant?.name ?? 'Restaurante'}
         numeroMesa={table.number}
         itens={itens}
         cobrancas={cobrancas}
@@ -315,6 +325,6 @@ export default function MesaPage() {
           onJaPaguei={jaPaguei}
         />
       )}
-    </>
+    </MolduraTelefone>
   );
 }

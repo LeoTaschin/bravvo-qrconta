@@ -8,8 +8,8 @@ interface SheetProps {
 
 export function Sheet({ title, onClose, children }: SheetProps) {
   return (
-    <div className="animate-overlay-fade-in fixed inset-0 z-20 flex items-end justify-center bg-black/40 backdrop-blur-[2px]">
-      <div className="animate-sheet-slide-up max-h-[90vh] w-full max-w-[430px] overflow-y-auto rounded-t-3xl bg-white p-6 pb-8 shadow-[0_-12px_40px_rgba(0,0,0,0.18)]">
+    <div className="animate-overlay-fade-in absolute inset-0 z-20 flex items-end justify-center bg-black/40 backdrop-blur-[2px]">
+      <div className="animate-sheet-slide-up max-h-[85%] w-full overflow-y-auto rounded-t-3xl bg-white p-6 pb-8 shadow-[0_-12px_40px_rgba(0,0,0,0.18)]">
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-black/10" />
         <div className="relative mb-5 flex items-center justify-center">
           <p className="text-lg font-semibold text-black">{title}</p>

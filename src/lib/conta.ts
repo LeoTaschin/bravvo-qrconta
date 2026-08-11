@@ -1,7 +1,52 @@
-import type { PixCharge, SessionItem } from '@/lib/supabase/types';
+import type { ItemStatus, PixCharge, SessionItem } from '@/lib/supabase/types';
 
 export function totalItem(item: SessionItem): number {
   return item.unit_price * item.quantity;
+}
+
+export interface ItemAgrupado {
+  key: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  status: ItemStatus;
+  total: number;
+}
+
+/**
+ * Junta linhas iguais da comanda numa só, pra o cliente conferir "2x Sprite
+ * Zero" em vez de duas linhas soltas do mesmo produto.
+ *
+ * O status entra na chave de propósito: um item já pago e outro em aberto do
+ * mesmo produto precisam continuar separados, porque só um deles aparece
+ * riscado. O preço unitário também, pra não somar itens lançados com valores
+ * diferentes (promoção, correção de preço) numa linha com total enganoso.
+ *
+ * É agrupamento só de exibição — a seleção item a item no fluxo de pagamento
+ * continua usando os itens originais, com seus ids.
+ */
+export function agruparItens(items: SessionItem[]): ItemAgrupado[] {
+  const grupos = new Map<string, ItemAgrupado>();
+
+  for (const item of items) {
+    const key = `${item.name}|${item.unit_price}|${item.status}`;
+    const grupo = grupos.get(key);
+    if (grupo) {
+      grupo.quantity += item.quantity;
+      grupo.total += totalItem(item);
+    } else {
+      grupos.set(key, {
+        key,
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice: item.unit_price,
+        status: item.status,
+        total: totalItem(item),
+      });
+    }
+  }
+
+  return Array.from(grupos.values());
 }
 
 export function totalSessao(items: SessionItem[]): number {
