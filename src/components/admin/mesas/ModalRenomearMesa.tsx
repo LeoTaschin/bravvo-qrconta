@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { nomeMesa } from '@/lib/mesas';
 import type { RestaurantTable } from '@/lib/supabase/types';
-import { Modal } from './Modal';
+import { Modal } from '@/components/admin/Modal';
 
 interface ModalRenomearMesaProps {
   mesa: RestaurantTable;

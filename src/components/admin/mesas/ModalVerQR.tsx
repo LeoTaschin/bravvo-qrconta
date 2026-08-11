@@ -5,7 +5,7 @@ import { gerarImagemQR } from '@/lib/pix/qrcode';
 import { nomeMesa } from '@/lib/mesas';
 import { baixarDataUrl, linkMesa } from '@/lib/mesas-export';
 import type { RestaurantTable } from '@/lib/supabase/types';
-import { Modal } from './Modal';
+import { Modal } from '@/components/admin/Modal';
 
 interface ModalVerQRProps {
   mesa: RestaurantTable;

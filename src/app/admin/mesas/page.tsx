@@ -12,8 +12,9 @@ import {
   setTableQrActive,
   regenerateTableSlug,
   deleteTable,
+  closeSessions,
 } from '@/lib/supabase/admin-queries';
-import type { RestaurantTable, Staff } from '@/lib/supabase/types';
+import type { RestaurantTable, Staff, TableSession } from '@/lib/supabase/types';
 import { nomeMesa, interpretarNomeOuNumero } from '@/lib/mesas';
 import { gerarImagemQR } from '@/lib/pix/qrcode';
 import { baixarDataUrl, linkMesa, baixarQRsEmLote, gerarPDFImpressao } from '@/lib/mesas-export';
@@ -24,7 +25,7 @@ import { BarraSelecao } from '@/components/admin/mesas/BarraSelecao';
 import { ModalNovaMesa } from '@/components/admin/mesas/ModalNovaMesa';
 import { ModalRenomearMesa } from '@/components/admin/mesas/ModalRenomearMesa';
 import { ModalVerQR } from '@/components/admin/mesas/ModalVerQR';
-import { ModalConfirmacao } from '@/components/admin/mesas/ModalConfirmacao';
+import { ModalConfirmacao } from '@/components/admin/ModalConfirmacao';
 
 function nomeArquivoQR(mesa: RestaurantTable): string {
   return `qrcode-${nomeMesa(mesa).toLowerCase().replace(/\s+/g, '-')}.png`;
@@ -38,7 +39,8 @@ export default function AdminGerenciarMesasPage() {
   const [staff, setStaff] = useState<Staff | null>(null);
   const [restaurantName, setRestaurantName] = useState<string | null>(null);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
-  const [openTableIds, setOpenTableIds] = useState<Set<string>>(new Set());
+  const [sessoesAbertas, setSessoesAbertas] = useState<TableSession[]>([]);
+  const openTableIds = useMemo(() => new Set(sessoesAbertas.map((sessao) => sessao.table_id)), [sessoesAbertas]);
 
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatusMesa>('todas');
@@ -54,6 +56,9 @@ export default function AdminGerenciarMesasPage() {
   const [excluindoAtivo, setExcluindoAtivo] = useState(false);
   const [erroExcluir, setErroExcluir] = useState<string | null>(null);
   const [processandoLote, setProcessandoLote] = useState(false);
+  const [modalFecharTodasAberto, setModalFecharTodasAberto] = useState(false);
+  const [fechandoTodasAtivo, setFechandoTodasAtivo] = useState(false);
+  const [erroFecharTodas, setErroFecharTodas] = useState<string | null>(null);
 
   const [aviso, setAviso] = useState<string | null>(null);
 
@@ -89,7 +94,7 @@ export default function AdminGerenciarMesasPage() {
 
         const sessoes = await getOpenSessionsForTables(mesas.map((mesa) => mesa.id));
         if (cancelado) return;
-        setOpenTableIds(new Set(sessoes.map((sessao) => sessao.table_id)));
+        setSessoesAbertas(sessoes);
       } catch (err) {
         if (!cancelado) {
           console.error(err);
@@ -219,6 +224,29 @@ export default function AdminGerenciarMesasPage() {
     }
   }
 
+  /**
+   * Botão de teste: fecha todas as sessões abertas de uma vez, ignorando
+   * saldo pendente — não passa pelo fluxo normal de pagamento, só reseta o
+   * salão pra continuar testando. Some com a barra de seleção junto.
+   */
+  async function handleConfirmarFecharTodas() {
+    if (sessoesAbertas.length === 0) return;
+    setFechandoTodasAtivo(true);
+    setErroFecharTodas(null);
+    try {
+      await closeSessions(sessoesAbertas.map((sessao) => sessao.id));
+      setSessoesAbertas([]);
+      setSelecionadas(new Set());
+      setModalFecharTodasAberto(false);
+      mostrarAviso('Todas as mesas foram fechadas.');
+    } catch (err) {
+      console.error(err);
+      setErroFecharTodas('Não foi possível fechar as mesas.');
+    } finally {
+      setFechandoTodasAtivo(false);
+    }
+  }
+
   async function handleCopiarLink(mesa: RestaurantTable) {
     await navigator.clipboard.writeText(linkMesa(mesa, origin));
     mostrarAviso('Link copiado!');
@@ -284,13 +312,25 @@ export default function AdminGerenciarMesasPage() {
             <h1 className="text-[28px] font-semibold tracking-tight text-[#111827]">Gerenciar mesas</h1>
             <p className="mt-1 text-sm text-black/45">Cadastre, organize e gerencie o acesso digital das mesas do salão.</p>
           </div>
-          <button
-            type="button"
-            onClick={() => setModalNovaMesaAberta(true)}
-            className="h-10 shrink-0 rounded-lg bg-[#851619] px-4 text-sm font-semibold text-white transition-colors hover:brightness-110"
-          >
-            + Nova mesa
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {openTableIds.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setModalFecharTodasAberto(true)}
+                className="h-10 rounded-lg border border-[#851619]/25 px-4 text-sm font-medium text-[#851619] transition-colors hover:bg-[#851619]/8"
+                title="Fecha todas as mesas de uma vez, ignorando o valor pendente — só para testes."
+              >
+                Fechar todas (teste)
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setModalNovaMesaAberta(true)}
+              className="h-10 rounded-lg bg-[#851619] px-4 text-sm font-semibold text-white transition-colors hover:brightness-110"
+            >
+              + Nova mesa
+            </button>
+          </div>
         </div>
 
         <p className="mb-6 mt-3 text-sm text-black/40">
@@ -390,6 +430,21 @@ export default function AdminGerenciarMesasPage() {
             setErroExcluir(null);
           }}
           onConfirmar={handleConfirmarExcluir}
+        />
+      )}
+
+      {modalFecharTodasAberto && (
+        <ModalConfirmacao
+          titulo="Fechar todas as mesas?"
+          descricao={`${sessoesAbertas.length} ${sessoesAbertas.length === 1 ? 'mesa será fechada' : 'mesas serão fechadas'} imediatamente, independente do valor em aberto. Use só para resetar o salão durante testes.`}
+          textoConfirmar="Fechar todas"
+          confirmando={fechandoTodasAtivo}
+          erro={erroFecharTodas}
+          onFechar={() => {
+            setModalFecharTodasAberto(false);
+            setErroFecharTodas(null);
+          }}
+          onConfirmar={handleConfirmarFecharTodas}
         />
       )}
 

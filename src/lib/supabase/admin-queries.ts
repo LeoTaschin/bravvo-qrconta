@@ -104,6 +104,20 @@ export async function closeSession(sessionId: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Fecha várias sessões de uma vez, ignorando saldo em aberto — usado pelo
+ * botão de teste "Fechar todas as mesas" na tela de gestão, pra resetar o
+ * salão rapidamente entre rodadas de teste sem passar pelo fluxo de pagamento.
+ */
+export async function closeSessions(sessionIds: string[]): Promise<void> {
+  if (sessionIds.length === 0) return;
+  const { error } = await supabase
+    .from('table_sessions')
+    .update({ status: 'closed', closed_at: new Date().toISOString() })
+    .in('id', sessionIds);
+  if (error) throw error;
+}
+
 export async function getOpenSessionsForTables(tableIds: string[]): Promise<TableSession[]> {
   if (tableIds.length === 0) return [];
   const { data, error } = await supabase
@@ -131,6 +145,52 @@ export async function getProductsForRestaurant(restaurantId: string): Promise<Pr
     .order('name', { ascending: true });
   if (error) throw error;
   return data ?? [];
+}
+
+/** Todos os produtos do restaurante (ativos e inativos), para a tela de gestão do catálogo. */
+export async function getAllProductsForRestaurant(restaurantId: string): Promise<Product[]> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .order('name', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createProduct(
+  restaurantId: string,
+  name: string,
+  price: number,
+  category: string | null
+): Promise<Product> {
+  const { data, error } = await supabase
+    .from('products')
+    .insert({ restaurant_id: restaurantId, name, price, category })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateProduct(
+  productId: string,
+  fields: { name: string; price: number; category: string | null }
+): Promise<Product> {
+  const { data, error } = await supabase.from('products').update(fields).eq('id', productId).select('*').single();
+  if (error) throw error;
+  return data;
+}
+
+export async function setProductActive(productId: string, active: boolean): Promise<void> {
+  const { error } = await supabase.from('products').update({ active }).eq('id', productId);
+  if (error) throw error;
+}
+
+/** Remove o produto do catálogo. Seguro: session_items copia nome/preço no lançamento, sem FK para products. */
+export async function deleteProduct(productId: string): Promise<void> {
+  const { error } = await supabase.from('products').delete().eq('id', productId);
+  if (error) throw error;
 }
 
 /**

@@ -1,9 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import type { Staff } from '@/lib/supabase/types';
+
+const ITENS_NAV = [
+  { rotulo: 'Mesas', href: '/admin/mesas', ativoEm: ['/admin', '/admin/mesas'] },
+  { rotulo: 'Produtos', href: '/admin/produtos', ativoEm: ['/admin/produtos'] },
+] as const;
 
 interface CabecalhoDashboardProps {
   staff: Staff;
@@ -19,6 +25,7 @@ function iniciais(nome: string): string {
 
 export function CabecalhoDashboard({ staff, restaurantName }: CabecalhoDashboardProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [menuAberto, setMenuAberto] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -47,13 +54,21 @@ export function CabecalhoDashboard({ staff, restaurantName }: CabecalhoDashboard
         <div className="flex items-center gap-8">
           <p className="text-base font-semibold tracking-tight text-[#851619]">QRConta</p>
           <nav className="flex items-center gap-1">
-            <button
-              type="button"
-              className="rounded-lg px-3 py-1.5 text-sm font-medium text-[#111827] transition-colors"
-            >
-              Mesas
-              <span className="mt-1.5 block h-0.5 rounded-full bg-[#851619]" />
-            </button>
+            {ITENS_NAV.map((item) => {
+              const ativo = (item.ativoEm as readonly string[]).includes(pathname);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                    ativo ? 'text-[#111827]' : 'text-black/40 hover:text-black/70'
+                  }`}
+                >
+                  {item.rotulo}
+                  {ativo && <span className="mt-1.5 block h-0.5 rounded-full bg-[#851619]" />}
+                </Link>
+              );
+            })}
             <button
               type="button"
               disabled

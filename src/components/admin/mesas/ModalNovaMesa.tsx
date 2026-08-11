@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Modal } from './Modal';
+import { Modal } from '@/components/admin/Modal';
 
 interface ModalNovaMesaProps {
   sugestao: string;
