@@ -149,7 +149,7 @@ export default function AdminMesaPage() {
       const sessaoAtiva = session ?? (await getOrCreateOpenSession(table.id));
       if (sessaoAtiva.id !== session?.id) setSession(sessaoAtiva);
 
-      await adicionarItemNaComanda(sessaoAtiva.id, produto, itens);
+      await adicionarItemNaComanda(sessaoAtiva.id, produto);
       await recarregarItens(sessaoAtiva.id);
     } catch (err) {
       console.error(err);

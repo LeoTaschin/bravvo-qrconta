@@ -195,28 +195,21 @@ export async function deleteProduct(productId: string): Promise<void> {
 
 /**
  * Adiciona um produto à comanda: se já existe uma linha "unpaid" desse mesmo
- * produto na sessão, só incrementa a quantidade (evita linhas duplicadas ao
- * clicar + repetidas vezes); senão cria uma linha nova com quantidade 1.
+ * produto na sessão, só incrementa a quantidade; senão cria uma linha nova.
+ *
+ * Quem decide isso é o banco, não daqui. Decidir no cliente exigia consultar a
+ * comanda que estava na tela, e dois toques rápidos no "+" liam a mesma lista
+ * desatualizada — as duas chamadas concluíam "ainda não existe" e a comanda
+ * ficava com duas linhas de 1x (ver a migration 20260815090000).
  */
 export async function adicionarItemNaComanda(
   sessionId: string,
-  produto: { name: string; price: number },
-  itensAtuais: SessionItem[]
+  produto: { name: string; price: number }
 ): Promise<void> {
-  const existente = itensAtuais.find(
-    (item) => item.session_id === sessionId && item.name === produto.name && item.status === 'unpaid'
-  );
-  if (existente) {
-    await atualizarQuantidadeItem(existente.id, existente.quantity + 1);
-    return;
-  }
-
-  const { error } = await supabase.from('session_items').insert({
-    session_id: sessionId,
-    name: produto.name,
-    quantity: 1,
-    unit_price: produto.price,
-    status: 'unpaid',
+  const { error } = await supabase.rpc('lancar_item_na_comanda', {
+    p_session_id: sessionId,
+    p_name: produto.name,
+    p_unit_price: produto.price,
   });
   if (error) throw error;
 }
