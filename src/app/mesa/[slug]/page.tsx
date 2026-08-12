@@ -10,9 +10,10 @@ import {
   getSessionItems,
   getSessionCharges,
   criarCobranca,
+  dividirItemDaComanda,
   marcarComoPago,
 } from '@/lib/supabase/queries';
-import { calcularFaltaPagar, itensDisponiveis, totalItem } from '@/lib/conta';
+import { calcularDivisaoIgual, calcularFaltaPagar, itensDisponiveis } from '@/lib/conta';
 import { gerarBRCode } from '@/lib/pix/brcode';
 import { gerarImagemQR } from '@/lib/pix/qrcode';
 import type {
@@ -28,7 +29,6 @@ import { MolduraTelefone } from '@/components/conta-mesa/MolduraTelefone';
 import { TelaCarregando } from '@/components/conta-mesa/TelaCarregando';
 import { ContaMesaPrincipal } from '@/components/conta-mesa/ContaMesaPrincipal';
 import { ModalPagarConta } from '@/components/conta-mesa/ModalPagarConta';
-import { ModalDividirConta } from '@/components/conta-mesa/ModalDividirConta';
 import { TelaDividirIgualmente } from '@/components/conta-mesa/TelaDividirIgualmente';
 import { TelaPagarItens } from '@/components/conta-mesa/TelaPagarItens';
 import { TelaPagamento } from '@/components/conta-mesa/TelaPagamento';
@@ -37,7 +37,6 @@ import { TelaQRCode } from '@/components/conta-mesa/TelaQRCode';
 type Passo =
   | 'principal'
   | 'modal-pagar-conta'
-  | 'modal-dividir-conta'
   | 'dividir-igualmente'
   | 'pagar-itens'
   | 'pagamento'
@@ -48,7 +47,8 @@ interface CobrancaPendente {
   amount: number;
   peoplePaying?: number;
   peopleTotal?: number;
-  itemIds?: string[];
+  /** Quantas unidades de cada linha da comanda esta cobrança leva. */
+  itensEscolhidos?: Array<{ id: string; quantidade: number }>;
 }
 
 export default function MesaPage() {
@@ -65,7 +65,8 @@ export default function MesaPage() {
   const [cobrancas, setCobrancas] = useState<PixCharge[]>([]);
 
   const [passo, setPasso] = useState<Passo>('principal');
-  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  /** id da linha da comanda -> quantas unidades dela o cliente escolheu. */
+  const [selecionados, setSelecionados] = useState<Map<string, number>>(new Map());
   const [peoplePaying, setPeoplePaying] = useState(1);
   const [peopleTotal, setPeopleTotal] = useState(2);
   const [pendente, setPendente] = useState<CobrancaPendente | null>(null);
@@ -154,29 +155,32 @@ export default function MesaPage() {
   }
 
   function confirmarDividirIgualmente() {
-    const valor = peopleTotal > 0 ? Math.round(((faltaPagar / peopleTotal) * peoplePaying) * 100) / 100 : 0;
-    setPendente({ chargeType: 'equal_split', amount: valor, peoplePaying, peopleTotal });
+    const { seuTotal } = calcularDivisaoIgual(faltaPagar, peoplePaying, peopleTotal);
+    setPendente({ chargeType: 'equal_split', amount: seuTotal, peoplePaying, peopleTotal });
     setPasso('pagamento');
   }
 
   function confirmarPagarItens() {
-    const selecionadosItens = itens.filter((item) => selecionados.has(item.id));
-    const valor = selecionadosItens.reduce((acc, item) => acc + totalItem(item), 0);
-    setPendente({
-      chargeType: 'items',
-      amount: valor,
-      itemIds: Array.from(selecionados),
-    });
+    const itensEscolhidos = Array.from(selecionados, ([id, quantidade]) => ({ id, quantidade }));
+    const valor = itensEscolhidos.reduce((acc, escolha) => {
+      const item = itens.find((i) => i.id === escolha.id);
+      return item ? acc + item.unit_price * escolha.quantidade : acc;
+    }, 0);
+    setPendente({ chargeType: 'items', amount: valor, itensEscolhidos });
     setPasso('pagamento');
   }
 
-  function alternarSelecao(itemId: string) {
+  function selecionarTodosOsItens() {
+    setSelecionados(new Map(disponiveis.map((item) => [item.id, item.quantity])));
+  }
+
+  function definirQuantidadeSelecionada(itemId: string, quantidade: number) {
     setSelecionados((atual) => {
-      const novo = new Set(atual);
-      if (novo.has(itemId)) {
+      const novo = new Map(atual);
+      if (quantidade <= 0) {
         novo.delete(itemId);
       } else {
-        novo.add(itemId);
+        novo.set(itemId, quantidade);
       }
       return novo;
     });
@@ -188,6 +192,21 @@ export default function MesaPage() {
     setErroCobranca(null);
 
     try {
+      // Quem escolheu só parte das unidades de uma linha ("1 das 3 águas")
+      // precisa dela separada antes da reserva, que é sempre por linha inteira.
+      // Se a cobrança falhar depois disso, a comanda fica com duas linhas do
+      // mesmo produto — o total da mesa não muda, então é inofensivo.
+      const itemIds = pendente.itensEscolhidos
+        ? await Promise.all(
+            pendente.itensEscolhidos.map(async ({ id, quantidade }) => {
+              const item = itens.find((i) => i.id === id);
+              return item && quantidade < item.quantity
+                ? dividirItemDaComanda(id, quantidade)
+                : id;
+            })
+          )
+        : undefined;
+
       const txid = crypto.randomUUID().replace(/-/g, '').toUpperCase().slice(0, 25);
       const brcode = gerarBRCode({
         chavePix: restaurant.pix_key,
@@ -205,7 +224,7 @@ export default function MesaPage() {
         brcode,
         peoplePaying: pendente.peoplePaying,
         peopleTotal: pendente.peopleTotal,
-        itemIds: pendente.itemIds,
+        itemIds,
       });
 
       const qrImage = await gerarImagemQR(brcode);
@@ -229,10 +248,19 @@ export default function MesaPage() {
     setCobrancaAtual((atual) => (atual ? { ...atual, status: 'pending_confirmation' } : atual));
   }
 
+  /**
+   * A seta de voltar da tela de itens desfaz um passo só — quem entrou ali
+   * errando a opção quer trocar de forma de pagamento, não sair do fluxo.
+   */
+  function voltarParaEscolha() {
+    setSelecionados(new Map());
+    setPasso('modal-pagar-conta');
+  }
+
   function voltarParaPrincipal() {
     setPasso('principal');
     setPendente(null);
-    setSelecionados(new Set());
+    setSelecionados(new Map());
     setCobrancaAtual(null);
     setQrImageAtual(null);
     setErroCobranca(null);
@@ -268,17 +296,11 @@ export default function MesaPage() {
 
       {passo === 'modal-pagar-conta' && (
         <ModalPagarConta
+          faltaPagar={faltaPagar}
           onClose={voltarParaPrincipal}
-          onDividirConta={() => setPasso('modal-dividir-conta')}
           onPagarContaCheia={pagarContaCheia}
-        />
-      )}
-
-      {passo === 'modal-dividir-conta' && (
-        <ModalDividirConta
-          onClose={voltarParaPrincipal}
-          onSelecionarItens={() => setPasso('pagar-itens')}
           onDividirIgualmente={() => setPasso('dividir-igualmente')}
+          onSelecionarItens={() => setPasso('pagar-itens')}
         />
       )}
 
@@ -296,10 +318,13 @@ export default function MesaPage() {
 
       {passo === 'pagar-itens' && (
         <TelaPagarItens
-          itens={disponiveis}
+          itens={itens}
+          faltaPagar={faltaPagar}
           selecionados={selecionados}
-          onToggle={alternarSelecao}
-          onClose={voltarParaPrincipal}
+          onDefinirQuantidade={definirQuantidadeSelecionada}
+          onSelecionarTodos={selecionarTodosOsItens}
+          onLimparSelecao={() => setSelecionados(new Map())}
+          onVoltar={voltarParaEscolha}
           onConfirmar={confirmarPagarItens}
         />
       )}

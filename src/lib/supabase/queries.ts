@@ -81,6 +81,23 @@ export async function getSessionCharges(sessionId: string): Promise<PixCharge[]>
   return data ?? [];
 }
 
+/**
+ * Separa `quantidade` unidades de uma linha da comanda numa linha nova, e
+ * devolve o id dela. Serve pro cliente pagar 1 das 3 águas sem levar as outras
+ * duas junto — a reserva é sempre por linha inteira.
+ *
+ * Roda como função no banco porque criar linha na comanda é justamente o que o
+ * cliente não pode fazer solto (ver a migration 20260814090000).
+ */
+export async function dividirItemDaComanda(itemId: string, quantidade: number): Promise<string> {
+  const { data, error } = await supabase.rpc('dividir_item_da_comanda', {
+    p_item_id: itemId,
+    p_quantidade: quantidade,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
 interface CriarCobrancaParams {
   sessionId: string;
   chargeType: ChargeType;

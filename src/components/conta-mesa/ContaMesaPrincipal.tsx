@@ -68,7 +68,7 @@ export function ContaMesaPrincipal({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-black/[0.06] bg-white px-4 pb-6 pt-4">
+      <div className="shrink-0 border-t border-black/[0.06] bg-white px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
         {contaQuitada ? (
           <p className="rounded-2xl bg-emerald-50 py-3.5 text-center text-base font-medium text-emerald-700">
             Conta quitada — obrigado!

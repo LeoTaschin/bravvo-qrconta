@@ -72,6 +72,49 @@ export function calcularFaltaPagar(items: SessionItem[], charges: PixCharge[]): 
   return Math.max(0, total - pagoEmItens - pagoEmDivisaoIgual);
 }
 
+export interface DivisaoIgual {
+  /** Quanto vale uma parte (o que cada pessoa da mesa paga). */
+  valorParte: number;
+  /** Quanto este cliente paga, somando as partes que escolheu cobrir. */
+  seuTotal: number;
+}
+
+/**
+ * Divide a conta em partes iguais trabalhando em centavos, pra a soma das
+ * partes bater exatamente com o valor devido.
+ *
+ * Dividir em reais e arredondar deixava resto órfão: R$ 100,00 entre 3 vira
+ * 33,33 por pessoa, todo mundo paga e sobra 1 centavo em aberto na mesa — o
+ * garçom não consegue fechar a comanda.
+ *
+ * O resto fica com quem cobre a mesa inteira. Enquanto o cliente paga só uma
+ * fatia, ele vê o valor redondo da parte (33,33) — cobrar 1 centavo a mais que
+ * a legenda "cada parte fica em" logo abaixo é o tipo de contradição que faz o
+ * cliente desconfiar da conta. E os centavos não se perdem: cada pagamento
+ * recalcula o falta_pagar, então eles sobram no valor de quem fecha por último,
+ * que aí cobre tudo e paga o resto junto.
+ */
+export function calcularDivisaoIgual(
+  faltaPagar: number,
+  peoplePaying: number,
+  peopleTotal: number
+): DivisaoIgual {
+  if (peopleTotal <= 0) return { valorParte: 0, seuTotal: 0 };
+
+  const totalCentavos = Math.round(faltaPagar * 100);
+  const centavosPorParte = Math.floor(totalCentavos / peopleTotal);
+  const centavosDeResto = totalCentavos - centavosPorParte * peopleTotal;
+
+  const partes = Math.min(peoplePaying, peopleTotal);
+  const seuTotalCentavos =
+    centavosPorParte * partes + (partes === peopleTotal ? centavosDeResto : 0);
+
+  return {
+    valorParte: centavosPorParte / 100,
+    seuTotal: seuTotalCentavos / 100,
+  };
+}
+
 export function itensDisponiveis(items: SessionItem[]): SessionItem[] {
   return items.filter((item) => item.status === 'unpaid');
 }

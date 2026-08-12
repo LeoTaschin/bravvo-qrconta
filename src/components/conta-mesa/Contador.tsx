@@ -3,26 +3,33 @@ interface ContadorProps {
   onIncrement: () => void;
   onDecrement: () => void;
   min?: number;
+  max?: number;
 }
 
-export function Contador({ value, onIncrement, onDecrement, min = 1 }: ContadorProps) {
+/**
+ * Neutro de propósito: o vermelho da marca fica reservado pro botão que
+ * confirma o pagamento. Um contador sólido na cor da marca puxava mais
+ * atenção que o próprio CTA da tela.
+ */
+export function Contador({ value, onIncrement, onDecrement, min = 1, max }: ContadorProps) {
   return (
-    <div className="flex h-[34px] w-[110px] items-center justify-between rounded-[60px] bg-[#851619] px-[10px] shadow-[0_2px_8px_rgba(133,22,25,0.25)]">
+    <div className="flex h-[38px] w-[116px] items-center justify-between rounded-full border-[0.5px] border-black/15 bg-white px-1.5">
       <button
         type="button"
         onClick={onDecrement}
         disabled={value <= min}
         aria-label="Diminuir"
-        className="flex size-6 items-center justify-center rounded-full bg-white text-sm font-medium text-[#851619] transition-transform active:scale-90 disabled:opacity-40 disabled:active:scale-100"
+        className="flex size-7 items-center justify-center rounded-full bg-black/[0.05] text-base font-medium text-[#111827] transition-transform active:scale-90 disabled:opacity-30 disabled:active:scale-100"
       >
-        -
+        −
       </button>
-      <span className="text-sm font-semibold text-white tabular-nums">{value}</span>
+      <span className="text-sm font-semibold text-[#111827] tabular-nums">{value}</span>
       <button
         type="button"
         onClick={onIncrement}
+        disabled={max !== undefined && value >= max}
         aria-label="Aumentar"
-        className="flex size-6 items-center justify-center rounded-full bg-white text-sm font-medium text-[#851619] transition-transform active:scale-90"
+        className="flex size-7 items-center justify-center rounded-full bg-black/[0.05] text-base font-medium text-[#111827] transition-transform active:scale-90 disabled:opacity-30 disabled:active:scale-100"
       >
         +
       </button>
